@@ -39,7 +39,17 @@ export default [
 ```
 POST /delta
 ```
-Triggers the import for a new downloaded document.
+Triggers the import for a new downloaded document if it's related to an automatic submission task.
+
+An import consists of 2 steps:
+1. Import the triples harvested from the document in a separate import-graph.
+2. Extract a submission from the data in the import-graph. This submission still needs to be validated.
+
+# Model
+TODO
 
 # Configuration
 TODO
+
+# Known limitations
+* The service expects exactly 1 remote file per submission. Knowledge cannot be spread across multiple files.

@@ -28,7 +28,8 @@ app.post('/delta', async function(req, res, next) {
     }
 
     for (let { task, submission, remoteFile } of tasks) {
-      await updateTaskStatus(task, TASK_ONGOING_STATUS);
+      const importGraph = `http://mu.semte.ch/graphs/import-${uuid()}`;
+      await updateTaskStatus(task, TASK_ONGOING_STATUS, importGraph);
       importSubmission(task, submission, remoteFile); // async processing of import
     }
 
@@ -40,18 +41,16 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(task, submission, remoteFile) {
+async function importSubmission(task, submission, remoteFile, importGraph) {
   try {
     const html = await getFileContent(remoteFile);
-    const tmpGraph = `http://mu.semte.ch/graphs/tmp-${uuid()}`;
-    await importInGraph(html, tmpGraph);
-    await enrichSubmission(submission, tmpGraph);
-    // TODO drop tmpGraph
-    console.log(`Successfully imported harvested data for submission <${submission}> from remote file <${remoteFile}>`);
+    await importInGraph(html, importGraph);
+    await enrichSubmission(submission, importGraph);
+    console.log(`Successfully imported harvested data for submission <${submission}> from remote file <${remoteFile}> in graph <${importGraph}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
   } catch (e) {
     console.log(`Something went wrong while importing the submission from task ${task}`);
-    // TODO add failure message on task
+    // TODO add reason of failure message on task
     try {
       await updateTaskStatus(task, TASK_FAILURE_STATUS);
     } catch (e) {
