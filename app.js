@@ -30,7 +30,7 @@ app.post('/delta', async function(req, res, next) {
     for (let { task, submission, remoteFile } of tasks) {
       const importGraph = `http://mu.semte.ch/graphs/import-${uuid()}`;
       await updateTaskStatus(task, TASK_ONGOING_STATUS, importGraph);
-      importSubmission(task, submission, remoteFile); // async processing of import
+      importSubmission(task, submission, remoteFile, importGraph); // async processing of import
     }
 
     return res.status(200).send({ data: tasks });
