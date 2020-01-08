@@ -12,8 +12,8 @@
     "@lblod/mu-auth-sudo": "^0.2.0",
     "@lblod/marawa": "https://github.com/lblod/marawa.git#master",
     "body-parser": "1.19.0",
+    "fs-extra": "8.1.0",
     "jsdom": "^11.6.2",
-    "lodash.chunk": "^4.2.0",
     "lodash.flatten": "^4.4.0",
     "lodash.uniqwith": "^4.5.0"
   },

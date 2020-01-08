@@ -1,10 +1,10 @@
 import { app, uuid, errorHandler } from 'mu';
 import bodyParser from 'body-parser';
 import flatten from 'lodash.flatten';
-import { getFileContent } from './lib/file-helpers';
-import { importInGraph } from './lib/graph-helpers';
+import { getFileContent, writeTtlFile } from './lib/file-helpers';
+import RdfaExtractor from './lib/rdfa-extractor';
 import { TASK_ONGOING_STATUS, TASK_SUCCESS_STATUS, TASK_FAILURE_STATUS,
-         getTasks, updateTaskStatus, enrichSubmission } from './lib/submission-task';
+         getTasks, updateTaskStatus } from './lib/submission-task';
 
 app.use( bodyParser.json( { type: function(req) { return /^application\/json/.test( req.get('content-type') ); } } ) );
 
@@ -28,9 +28,8 @@ app.post('/delta', async function(req, res, next) {
     }
 
     for (let { task, submission, remoteFile } of tasks) {
-      const importGraph = `http://mu.semte.ch/graphs/import-${uuid()}`;
-      await updateTaskStatus(task, TASK_ONGOING_STATUS, importGraph);
-      importSubmission(task, submission, remoteFile, importGraph); // async processing of import
+      await updateTaskStatus(task, TASK_ONGOING_STATUS);
+      importSubmission(task, submission, remoteFile); // async processing of import
     }
 
     return res.status(200).send({ data: tasks });
@@ -41,15 +40,17 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(task, submission, remoteFile, importGraph) {
+async function importSubmission(task, submission, remoteFile) {
   try {
     const html = await getFileContent(remoteFile);
-    await importInGraph(html, importGraph);
-    await enrichSubmission(submission, importGraph);
-    console.log(`Successfully imported harvested data for submission <${submission}> from remote file <${remoteFile}> in graph <${importGraph}>`);
+    const ttl = new RdfaExtractor(html).ttl();
+    // TODO enrich with derived data about document/decision types
+    const uri = await writeTtlFile(ttl, remoteFile);
+    console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
   } catch (e) {
     console.log(`Something went wrong while importing the submission from task ${task}`);
+    console.log(e);
     // TODO add reason of failure message on task
     try {
       await updateTaskStatus(task, TASK_FAILURE_STATUS);

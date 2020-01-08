@@ -1,5 +1,5 @@
 # import-submission-service
-Microservice to import knowledge about a submission harvested from a published document.
+Microservice that harvests knowledge about a submission from an annotated document and writes the resulting triples to a Turtle file.
 
 ## Installation
 Add the following snippet to your `docker-compose.yml`:
@@ -11,7 +11,7 @@ import-submission:
     - ./data/files:/share
 ```
 
-The volume mounted in `/share` must contain the cached downloads of the published documents.
+The volume mounted in `/share` must contain the cached downloads of the published documents. The resulting Turtle files will be written to the subfolder `./submission-ttl`.
 
 Configure the delta-notification service to send notifications on the `/delta` endpoint when a file has been downloaded. Add the following snippet in the delta rules configuration of your project:
 
@@ -27,7 +27,7 @@ export default [
       url: "http://import-submission/delta"
     },
     options: {
-      resourceFormat: "v0.0.0-genesis",
+      resourceFormat: "v0.0.1",
       gracePeriod: 1000,
       ignoreFromSelf: true
     }
@@ -44,32 +44,54 @@ Triggers the import for a new downloaded document if it's related to an automati
 The service is triggered by updates of resources of type `nfo:RemoteDataObject` of which the status is updated to `http://lblod.data.gift/file-download-statuses/success` if it is related to a `melding:AutomaticSubmissionTask` that has not been started yet.
 
 An import consists of 2 steps:
-1. Import the triples harvested from the document in an import-graph.
-2. Extract a submission from the data in the import-graph. This submission is not validated yet.
+1. Harvest the triples from the annotated document using [Marawa's context scanner](https://github.com/lblod/marawa)
+2. Write the triples to a Turtle file
+
+The resulting triples are validated and converted to a submission for 'Loket voor Lokale Besturen' at a later stage in the automatic submission process by the [validate-submission-service](https://github.com/lblod/validate-submission-service).
 
 ## Model
 
 ### Automatic submission task
-A resource describing the status and progress of the processing of an automatic submission. The model is specified in the [README of the automatic submission service](https://github.com/lblod/automatic-submission-service#model).
+A resource describing the status and progress of the processing of an automatic submission.
 
-The services enriches the task with the following properties:
+#### Class
+`melding:AutomaticSubmissionTask`
 
-| Name       | Predicate        | Range            | Definition                                                                                                                          |
-|------------|------------------|------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| importGraph     | `melding:importGraph`    | `rdfs:Resource`    | Graph in which the harvested triples are imported |
-
+#### Properties
+The model is specified in the [README of the automatic submission service](https://github.com/lblod/automatic-submission-service#model).
 
 ### Automatic submission task statuses
 Once the import process starts, The status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/importing.
 
 On successful completion, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/ready-for-validation.
+
 On failure, the status is updated to http://lblod.data.gift/automatische-melding-statuses/failure.
+
+### Annotated RDFa/HTML document
+Local copy of the published submission in RDFa/HTML format as downloaded by the [download-url-service](https://github.com/lblod/download-url-service). This document is used as source to harvest triples from.
+
+#### Class
+`nfo:FileDataObject`
+
+#### Properties
+See data model of the [file service](https://github.com/mu-semtech/file-service#resources).
+
+### Turtle file
+#### Class
+`nfo:FileDataObject`
+
+#### Properties
+| Name   | Predicate        | Range                | Definition                                                               |
+|--------|------------------|----------------------|--------------------------------------------------------------------------|
+| source | `nie:dataSource` | `nfo:FileDataObject` | RDFa/HTML document from which the content of this document is harvested  |
+
+Additional properties are specified in the model of the [file service](https://github.com/mu-semtech/file-service#resources).
 
 ## Related services
 The following services are also involved in the automatic processing of a submission:
 * [automatic-submission-service](https://github.com/lblod/automatic-submission-service)
 * [download-url-service](https://github.com/lblod/download-url-service)
+* [validate-submission-service](https://github.com/lblod/validate-submission-service)
 
 ## Known limitations
 * The service expects exactly 1 remote file per submission. Knowledge cannot be spread across multiple files.
-* Currently data is extracted using hardcoded SPARQL queries. This must be done in a generic way based on the semantic forms in the database.
