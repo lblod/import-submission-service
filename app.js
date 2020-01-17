@@ -1,12 +1,14 @@
-import { app, uuid, errorHandler } from 'mu';
+import { app, errorHandler } from 'mu';
 import bodyParser from 'body-parser';
 import flatten from 'lodash.flatten';
 import { getFileContent, writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
-import { TASK_ONGOING_STATUS, TASK_SUCCESS_STATUS, TASK_FAILURE_STATUS,
-         getTasks, updateTaskStatus } from './lib/submission-task';
+import {
+  TASK_ONGOING_STATUS, TASK_SUCCESS_STATUS, TASK_FAILURE_STATUS,
+  getTasks, updateTaskStatus
+} from './lib/submission-task';
 
-app.use( bodyParser.json( { type: function(req) { return /^application\/json/.test( req.get('content-type') ); } } ) );
+app.use(bodyParser.json({ type: function(req) { return /^application\/json/.test(req.get('content-type')); } }));
 
 app.get('/', function(req, res) {
   res.send('Hello from import-submission-service');
@@ -27,9 +29,9 @@ app.post('/delta', async function(req, res, next) {
       return res.status(204).send();
     }
 
-    for (let { task, submission, remoteFile } of tasks) {
+    for (let { task, submission, submittedDocument, remoteFile } of tasks) {
       await updateTaskStatus(task, TASK_ONGOING_STATUS);
-      importSubmission(task, submission, remoteFile); // async processing of import
+      importSubmission(task, submission, submittedDocument, remoteFile); // async processing of import
     }
 
     return res.status(200).send({ data: tasks });
@@ -40,12 +42,12 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(task, submission, remoteFile) {
+async function importSubmission(task, submission, submittedDocument, remoteFile) {
   try {
     const html = await getFileContent(remoteFile);
     const ttl = new RdfaExtractor(html).ttl();
     // TODO enrich with derived data about document/decision types
-    const uri = await writeTtlFile(ttl, remoteFile);
+    const uri = await writeTtlFile(ttl, submittedDocument, remoteFile);
     console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
   } catch (e) {

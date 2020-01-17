@@ -11,7 +11,7 @@ import-submission:
     - ./data/files:/share
 ```
 
-The volume mounted in `/share` must contain the cached downloads of the published documents. The resulting Turtle files will be written to the subfolder `./submission-ttl`.
+The volume mounted in `/share` must contain the cached downloads of the published documents. The resulting Turtle files will be written to the subfolder `./submissions`.
 
 Configure the delta-notification service to send notifications on the `/delta` endpoint when a file has been downloaded. Add the following snippet in the delta rules configuration of your project:
 
@@ -61,7 +61,7 @@ A resource describing the status and progress of the processing of an automatic 
 The model is specified in the [README of the automatic submission service](https://github.com/lblod/automatic-submission-service#model).
 
 ### Automatic submission task statuses
-Once the import process starts, The status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/importing.
+Once the import process starts, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/importing.
 
 On successful completion, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/ready-for-validation.
 
@@ -86,6 +86,17 @@ See data model of the [file service](https://github.com/mu-semtech/file-service#
 | source | `nie:dataSource` | `nfo:FileDataObject` | RDFa/HTML document from which the content of this document is harvested  |
 
 Additional properties are specified in the model of the [file service](https://github.com/mu-semtech/file-service#resources).
+
+### Submitted resource
+#### Class
+`foaf:Document` (and `ext:SubmissionDocument`)
+
+#### Properties
+| Name   | Predicate    | Range                | Definition                                                              |
+|--------|--------------|----------------------|-------------------------------------------------------------------------|
+| source | `dct:source` | `nfo:FileDataObject` | TTL document with harvested data from which the resource is constructed |
+
+For a full list of properties of a submitted resource, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations).
 
 ## Related services
 The following services are also involved in the automatic processing of a submission:
