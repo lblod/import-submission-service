@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import flatten from 'lodash.flatten';
 import { getFileContent, writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
+import enrichSubmission from './lib/submission-enricher';
 import {
   TASK_ONGOING_STATUS, TASK_SUCCESS_STATUS, TASK_FAILURE_STATUS,
   getTasks, updateTaskStatus
@@ -45,8 +46,13 @@ app.post('/delta', async function(req, res, next) {
 async function importSubmission(task, submission, submittedDocument, remoteFile) {
   try {
     const html = await getFileContent(remoteFile);
-    const ttl = new RdfaExtractor(html).ttl();
-    // TODO enrich with derived data about document/decision types
+
+    const rdfaExtractor = new RdfaExtractor(html);
+    const triples = rdfaExtractor.rdfa();
+    const enrichments = await enrichSubmission(submission, submittedDocument, remoteFile, triples);
+    rdfaExtractor.add(enrichments);
+    const ttl = rdfaExtractor.ttl();
+
     const uri = await writeTtlFile(ttl, submittedDocument, remoteFile);
     console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);

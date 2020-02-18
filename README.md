@@ -43,9 +43,12 @@ Triggers the import for a new downloaded document if it's related to an automati
 
 The service is triggered by updates of resources of type `nfo:RemoteDataObject` of which the status is updated to `http://lblod.data.gift/file-download-statuses/success` if it is related to a `melding:AutomaticSubmissionTask` that has not been started yet.
 
-An import consists of 2 steps:
+An import consists of 3 steps:
 1. Harvest the triples from the annotated document using [Marawa's context scanner](https://github.com/lblod/marawa)
-2. Write the triples to a Turtle file
+2. Enrich the triples with known facts
+  * Explicitly expand the SKOS tree of besluit type or besluit document type (e.g. 'Belastingsreglement' is also a 'Reglement en verordening')
+  * Add the publication URL as a logical part of the submitted document (i.e. pre-fill the 'link' field in the form)
+3. Write the triples to a Turtle file
 
 The resulting triples are validated and converted to a submission for 'Loket voor Lokale Besturen' at a later stage in the automatic submission process by the [validate-submission-service](https://github.com/lblod/validate-submission-service).
 
@@ -92,9 +95,10 @@ Additional properties are specified in the model of the [file service](https://g
 `foaf:Document` (and `ext:SubmissionDocument`)
 
 #### Properties
-| Name   | Predicate    | Range                | Definition                                                              |
-|--------|--------------|----------------------|-------------------------------------------------------------------------|
-| source | `dct:source` | `nfo:FileDataObject` | TTL document with harvested data from which the resource is constructed |
+| Name   | Predicate     | Range                  | Definition                                                              |
+|--------|---------------|------------------------|-------------------------------------------------------------------------|
+| source | `dct:source`  | `nfo:FileDataObject`   | TTL document with harvested data from which the resource is constructed |
+| link   | `dct:hasPart` | `nfo:RemoteDataObject` | Publication URL of the submission document                              |
 
 For a full list of properties of a submitted resource, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations).
 
