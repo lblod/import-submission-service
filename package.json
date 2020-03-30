@@ -15,8 +15,7 @@
     "fs-extra": "8.1.0",
     "jsdom": "^11.6.2",
     "lodash.flatten": "^4.4.0",
-    "lodash.uniqwith": "^4.5.0",
-    "lodash.uniq": "^4.5.0"
+    "lodash.uniqwith": "^4.5.0"
   },
   "devDependencies": {},
   "scripts": {
