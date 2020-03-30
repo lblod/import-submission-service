@@ -66,7 +66,7 @@ The model is specified in the [README of the automatic submission service](https
 ### Automatic submission task statuses
 Once the import process starts, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/importing.
 
-On successful completion, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/ready-for-validation.
+On successful completion, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/ready-for-enrichment.
 
 On failure, the status is updated to http://lblod.data.gift/automatische-melding-statuses/failure.
 
@@ -106,6 +106,7 @@ For a full list of properties of a submitted resource, we refer to the [automati
 The following services are also involved in the automatic processing of a submission:
 * [automatic-submission-service](https://github.com/lblod/automatic-submission-service)
 * [download-url-service](https://github.com/lblod/download-url-service)
+* [enrich-submission-service](https://github.com/lblod/enrich-submission-service)
 * [validate-submission-service](https://github.com/lblod/validate-submission-service)
 
 ## Known limitations

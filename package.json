@@ -1,6 +1,6 @@
 {
   "name": "import-submission-service",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Microservice to import knowledge about a submission harvested from a published document.",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "@lblod/mu-auth-sudo": "^0.2.0",
-    "@lblod/marawa": "https://github.com/lblod/marawa.git#master",
+    "@lblod/marawa": "^0.6.0",
     "body-parser": "1.19.0",
     "fs-extra": "8.1.0",
     "jsdom": "^11.6.2",
