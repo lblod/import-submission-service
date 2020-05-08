@@ -1,7 +1,8 @@
 # import-submission-service
 Microservice that harvests knowledge about a submission from an annotated document and writes the resulting triples to a Turtle file.
 
-## Installation
+## Getting started
+### Add the service to a stack
 Add the following snippet to your `docker-compose.yml`:
 
 ```yml
@@ -35,7 +36,8 @@ export default [
 ]
 ```
 
-## API
+## Reference
+### API
 ```
 POST /delta
 ```
@@ -45,56 +47,60 @@ The service is triggered by updates of resources of type `nfo:RemoteDataObject` 
 
 An import consists of 3 steps:
 1. Harvest the triples from the annotated document using [Marawa's context scanner](https://github.com/lblod/marawa)
-2. Enrich the triples with known facts
+2. Enrich the triples with known facts (see [submission-enricher.js](https://github.com/lblod/import-submission-service/blob/master/lib/submission-enricher.js))
   * Explicitly expand the SKOS tree of besluit type or besluit document type (e.g. 'Belastingsreglement' is also a 'Reglement en verordening')
-  * Add the publication URL as a logical part of the submitted document (i.e. pre-fill the 'link' field in the form)
-3. Write the triples to a Turtle file
+  * Add the publication URL as a part of the submitted document (i.e. pre-fill the 'link' field in the form)
+3. Write the triples to a Turtle file and associate it with the submitted document
 
-The resulting triples are validated and converted to a submission for 'Loket voor Lokale Besturen' at a later stage in the automatic submission process by the [validate-submission-service](https://github.com/lblod/validate-submission-service).
+The resulting triples are validated and converted to a submission for 'Loket voor Lokale Besturen' at a later stage in the automatic submission process by the [enrich-submission-service](https://github.com/lblod/enrich-submission-service) and [validate-submission-service](https://github.com/lblod/validate-submission-service).
 
-## Model
+### Model
 
-### Automatic submission task
+#### Automatic submission task
 A resource describing the status and progress of the processing of an automatic submission.
 
-#### Class
+##### Class
 `melding:AutomaticSubmissionTask`
 
-#### Properties
+##### Properties
 The model is specified in the [README of the automatic submission service](https://github.com/lblod/automatic-submission-service#model).
-
-### Automatic submission task statuses
+___
+#### Automatic submission task statuses
 Once the import process starts, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/importing.
 
 On successful completion, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/ready-for-enrichment.
 
 On failure, the status is updated to http://lblod.data.gift/automatische-melding-statuses/failure.
-
-### Annotated RDFa/HTML document
+___
+#### Annotated RDFa/HTML document
 Local copy of the published submission in RDFa/HTML format as downloaded by the [download-url-service](https://github.com/lblod/download-url-service). This document is used as source to harvest triples from.
 
-#### Class
+##### Class
 `nfo:FileDataObject`
 
-#### Properties
-See data model of the [file service](https://github.com/mu-semtech/file-service#resources).
+##### Properties
+| Name   | Predicate        | Range                  | Definition                                               |
+|--------|------------------|------------------------|----------------------------------------------------------|
+| source | `nie:dataSource` | `nfo:RemoteDataObject` | Remote document from which this resource is a local copy |
 
-### Turtle file
-#### Class
+Additional properties are specified in the model of the [file service](https://github.com/mu-semtech/file-service#resources).
+___
+#### Turtle file
+##### Class
 `nfo:FileDataObject`
 
-#### Properties
+##### Properties
 | Name   | Predicate        | Range                | Definition                                                               |
 |--------|------------------|----------------------|--------------------------------------------------------------------------|
 | source | `nie:dataSource` | `nfo:FileDataObject` | RDFa/HTML document from which the content of this document is harvested  |
 
 Additional properties are specified in the model of the [file service](https://github.com/mu-semtech/file-service#resources).
-
-### Submitted resource
-#### Class
+___
+#### Submitted document
+##### Class
 `foaf:Document` (and `ext:SubmissionDocument`)
 
-#### Properties
+##### Properties
 | Name   | Predicate     | Range                  | Definition                                                              |
 |--------|---------------|------------------------|-------------------------------------------------------------------------|
 | source | `dct:source`  | `nfo:FileDataObject`   | TTL document with harvested data from which the resource is constructed |
@@ -108,6 +114,7 @@ The following services are also involved in the automatic processing of a submis
 * [download-url-service](https://github.com/lblod/download-url-service)
 * [enrich-submission-service](https://github.com/lblod/enrich-submission-service)
 * [validate-submission-service](https://github.com/lblod/validate-submission-service)
+* [toezicht-flattened-form-data-generator](https://github.com/lblod/toezicht-flattened-form-data-generator)
 
 ## Known limitations
 * The service expects exactly 1 remote file per submission. Knowledge cannot be spread across multiple files.
