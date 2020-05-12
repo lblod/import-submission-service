@@ -86,6 +86,8 @@ Local copy of the published submission in RDFa/HTML format as downloaded by the 
 Additional properties are specified in the model of the [file service](https://github.com/mu-semtech/file-service#resources).
 ___
 #### Turtle file
+TTL file containing the triples harvested from the published RDFa/HTML file used as a basis to fill in the form.
+
 ##### Class
 `nfo:FileDataObject`
 
