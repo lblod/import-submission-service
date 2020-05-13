@@ -30,9 +30,9 @@ app.post('/delta', async function(req, res, next) {
       return res.status(204).send();
     }
 
-    for (let { task, submission, submittedDocument, remoteFile } of tasks) {
+    for (let { task, submission, documentUrl, submittedDocument, remoteFile } of tasks) {
       await updateTaskStatus(task, TASK_ONGOING_STATUS);
-      importSubmission(task, submission, submittedDocument, remoteFile); // async processing of import
+      importSubmission(task, submission, documentUrl, submittedDocument, remoteFile); // async processing of import
     }
 
     return res.status(200).send({ data: tasks });
@@ -43,11 +43,11 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(task, submission, submittedDocument, remoteFile) {
+async function importSubmission(task, submission, documentUrl, submittedDocument, remoteFile) {
   try {
     const html = await getFileContent(remoteFile);
 
-    const rdfaExtractor = new RdfaExtractor(html);
+    const rdfaExtractor = new RdfaExtractor(html, documentUrl);
     const triples = rdfaExtractor.rdfa();
     const enrichments = await enrichSubmission(submission, submittedDocument, remoteFile, triples);
     rdfaExtractor.add(enrichments);
