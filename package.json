@@ -1,6 +1,6 @@
 {
   "name": "import-submission-service",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Microservice to import knowledge about a submission harvested from a published document.",
   "repository": {
     "type": "git",
