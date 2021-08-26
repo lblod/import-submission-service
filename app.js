@@ -1,12 +1,16 @@
-import { app, errorHandler } from 'mu';
 import bodyParser from 'body-parser';
-import flatten from 'lodash.flatten';
-import { getFileContent, writeTtlFile } from './lib/file-helpers';
-import RdfaExtractor from './lib/rdfa-extractor';
-import enrichSubmission from './lib/submission-enricher';
+import { flatten } from 'lodash';
+import { app, errorHandler } from 'mu';
+import { scheduleDownloadAttachment } from './lib/attachment-helpers';
 import {
-  TASK_ONGOING_STATUS, TASK_SUCCESS_STATUS, TASK_FAILURE_STATUS,
-  getTasks, updateTaskStatus
+    getFileContent,
+    writeTtlFile
+} from './lib/file-helpers';
+import RdfaExtractor from './lib/rdfa-extractor';
+import enrichSubmission, { enrichWithAttachmentInfo } from './lib/submission-enricher';
+import {
+    getTasks, TASK_FAILURE_STATUS, TASK_ONGOING_STATUS,
+    TASK_SUCCESS_STATUS, updateTaskStatus
 } from './lib/submission-task';
 
 app.use(bodyParser.json({ type: function(req) { return /^application\/json/.test(req.get('content-type')); } }));
@@ -23,19 +27,14 @@ app.post('/delta', async function(req, res, next) {
   }
 
   try {
-    const tasks = await getTasks(remoteFiles);
+    const notStartedTasks = await getTasks(remoteFiles);
 
-    if (!tasks.length) {
-      console.log(`Remote data objects are not related to automatic submission tasks. Nothing should happen.`);
-      return res.status(204).send();
-    }
-
-    for (let { task, submission, documentUrl, submittedDocument, remoteFile } of tasks) {
+    for (let { task, submission, documentUrl, submittedDocument, remoteFile } of notStartedTasks) {
       await updateTaskStatus(task, TASK_ONGOING_STATUS);
       importSubmission(task, submission, documentUrl, submittedDocument, remoteFile); // async processing of import
     }
 
-    return res.status(200).send({ data: tasks });
+    return res.status(200).send({ data: notStartedTasks  });
   } catch (e) {
     console.log(`Something went wrong while handling deltas for remote data objects ${remoteFiles.join(`, `)}`);
     console.log(e);
@@ -49,13 +48,27 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
 
     const rdfaExtractor = new RdfaExtractor(html, documentUrl);
     const triples = rdfaExtractor.rdfa();
+
     const enrichments = await enrichSubmission(submission, submittedDocument, remoteFile, triples);
     rdfaExtractor.add(enrichments);
-    const ttl = rdfaExtractor.ttl();
 
+    const attachmentUrls = calculateAttachmentsToDownlad(triples, submittedDocument);
+
+    if(attachmentUrls.length){
+      console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
+      for(const attachmentUrl of attachmentUrls){
+        //Note: there is no clear message when attachment download failed.
+        const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl);
+        const enrichments = await enrichWithAttachmentInfo(submittedDocument, remoteDataObject, attachmentUrl);
+        rdfaExtractor.add(enrichments);
+      }
+    }
+
+    const ttl = rdfaExtractor.ttl();
     const uri = await writeTtlFile(ttl, submittedDocument, remoteFile);
     console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
+
   } catch (e) {
     console.log(`Something went wrong while importing the submission from task ${task}`);
     console.log(e);
@@ -66,6 +79,28 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
       console.log(`Failed to update state of task ${task} to failure state. Is the connection to the database broken?`);
     }
   }
+}
+
+function calculateAttachmentsToDownlad(triples, submittedDocument){
+  // The most basic case where bestuurseenheid doesn't have to publish linked
+  // I.e. the decision has just an URI and refers to a PDF for ALL the rest.
+  // Mainly meant for VGC case
+  const attachmentsAsSourceOfDecisions = triples
+        .filter(t => t.subject == submittedDocument
+                && t.predicate == 'http://purl.org/dc/terms/source')
+        .map(t => t.object);
+
+  const simpleAttachments = triples
+        .filter(t => t.subject == submittedDocument
+                && t.predicate == 'http://data.europa.eu/eli/ontology#related_to')
+        .map(t => t.object);
+
+  // const partOfDescisionAttachments = triples
+  //       .filter(t => t.subject == submittedDocument
+  //               && t.predicate == 'https://vlavirgem.be/bijlages/84112ac5-baed-47a7-a90c-a323d54b0e84.pdf')
+  //       .map(t => t.object);
+
+  return [ ...attachmentsAsSourceOfDecisions, ...simpleAttachments ];
 }
 
 /**
