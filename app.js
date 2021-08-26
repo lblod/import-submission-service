@@ -90,15 +90,13 @@ function calculateAttachmentsToDownlad(triples, submittedDocument){
                 && t.predicate == 'http://purl.org/dc/terms/source')
         .map(t => t.object);
 
+  //This should cover simple attachments AND attachments as part of decision
   const simpleAttachments = triples
         .filter(t => t.subject == submittedDocument
                 && t.predicate == 'http://data.europa.eu/eli/ontology#related_to')
         .map(t => t.object);
 
-  // const partOfDescisionAttachments = triples
-  //       .filter(t => t.subject == submittedDocument
-  //               && t.predicate == 'https://vlavirgem.be/bijlages/84112ac5-baed-47a7-a90c-a323d54b0e84.pdf')
-  //       .map(t => t.object);
+  //Nested decisions are ignored for now. Not sure what to expect from ABB, and how it should be rendered.
 
   return [ ...attachmentsAsSourceOfDecisions, ...simpleAttachments ];
 }
