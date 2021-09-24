@@ -13,6 +13,8 @@ import {
     TASK_SUCCESS_STATUS, updateTaskStatus
 } from './lib/submission-task';
 
+import { getAuthenticationConfigForSubmission, cleanCredentials } from './lib/credential-helpers';
+
 app.use(bodyParser.json({ type: function(req) { return /^application\/json/.test(req.get('content-type')); } }));
 
 app.get('/', function(req, res) {
@@ -44,11 +46,11 @@ app.post('/delta', async function(req, res, next) {
 
 async function importSubmission(task, submission, documentUrl, submittedDocument, remoteFile) {
   try {
+
     const html = await getFileContent(remoteFile);
 
     const rdfaExtractor = new RdfaExtractor(html, documentUrl);
     const triples = rdfaExtractor.rdfa();
-
     const enrichments = await enrichSubmission(submission, submittedDocument, remoteFile, triples);
     rdfaExtractor.add(enrichments);
 
@@ -69,7 +71,8 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
     console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
 
-  } catch (e) {
+  }
+  catch (e) {
     console.log(`Something went wrong while importing the submission from task ${task}`);
     console.log(e);
     // TODO add reason of failure message on task
@@ -78,6 +81,11 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
     } catch (e) {
       console.log(`Failed to update state of task ${task} to failure state. Is the connection to the database broken?`);
     }
+  }
+  finally {
+    console.log('Removing credentials from submission');
+    const authenticationConfig = await getAuthenticationConfigForSubmission(submission);
+    await cleanCredentials(authenticationConfig.authenticationConfiguration);
   }
 }
 
