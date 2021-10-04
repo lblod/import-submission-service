@@ -128,6 +128,6 @@ function getRemoteFileUris(delta) {
 function isTriggerTriple(triple) {
   return triple.predicate.value == 'http://www.w3.org/ns/adms#status'
     && triple.object.value == 'http://lblod.data.gift/file-download-statuses/success';
-};
+}
 
 app.use(errorHandler);
