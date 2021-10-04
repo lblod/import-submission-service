@@ -70,7 +70,6 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
     const uri = await writeTtlFile(ttl, submittedDocument, remoteFile);
     console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
-
   }
   catch (e) {
     console.log(`Something went wrong while importing the submission from task ${task}`);
@@ -83,9 +82,10 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
     }
   }
   finally {
-    console.log('Removing credentials from submission');
+    console.log('Removing credentials from submission if any');
     const authenticationConfig = await getAuthenticationConfigForSubmission(submission);
-    await cleanCredentials(authenticationConfig.authenticationConfiguration);
+    if (authenticationConfig)
+      await cleanCredentials(authenticationConfig.authenticationConfiguration);
   }
 }
 
