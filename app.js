@@ -46,12 +46,11 @@ app.post('/delta', async function(req, res, next) {
 
 async function importSubmission(task, submission, documentUrl, submittedDocument, remoteFile) {
   try {
-
     const html = await getFileContent(remoteFile);
 
     const rdfaExtractor = new RdfaExtractor(html, documentUrl);
     const triples = rdfaExtractor.rdfa();
-    const enrichments = await enrichSubmission(submission, submittedDocument, remoteFile, triples);
+    const enrichments = await enrichSubmission(submittedDocument, remoteFile, triples);
     rdfaExtractor.add(enrichments);
 
     const attachmentUrls = calculateAttachmentsToDownlad(triples, submittedDocument);
