@@ -46,12 +46,11 @@ app.post('/delta', async function(req, res, next) {
 
 async function importSubmission(task, submission, documentUrl, submittedDocument, remoteFile) {
   try {
-
     const html = await getFileContent(remoteFile);
 
     const rdfaExtractor = new RdfaExtractor(html, documentUrl);
     const triples = rdfaExtractor.rdfa();
-    const enrichments = await enrichSubmission(submission, submittedDocument, remoteFile, triples);
+    const enrichments = await enrichSubmission(submittedDocument, remoteFile, triples);
     rdfaExtractor.add(enrichments);
 
     const attachmentUrls = calculateAttachmentsToDownlad(triples, submittedDocument);
@@ -70,7 +69,6 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
     const uri = await writeTtlFile(ttl, submittedDocument, remoteFile);
     console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
     await updateTaskStatus(task, TASK_SUCCESS_STATUS);
-
   }
   catch (e) {
     console.log(`Something went wrong while importing the submission from task ${task}`);
@@ -83,9 +81,10 @@ async function importSubmission(task, submission, documentUrl, submittedDocument
     }
   }
   finally {
-    console.log('Removing credentials from submission');
+    console.log('Removing credentials from submission if any');
     const authenticationConfig = await getAuthenticationConfigForSubmission(submission);
-    await cleanCredentials(authenticationConfig.authenticationConfiguration);
+    if (authenticationConfig)
+      await cleanCredentials(authenticationConfig.authenticationConfiguration);
   }
 }
 
@@ -128,6 +127,6 @@ function getRemoteFileUris(delta) {
 function isTriggerTriple(triple) {
   return triple.predicate.value == 'http://www.w3.org/ns/adms#status'
     && triple.object.value == 'http://lblod.data.gift/file-download-statuses/success';
-};
+}
 
 app.use(errorHandler);
