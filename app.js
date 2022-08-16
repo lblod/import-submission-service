@@ -34,10 +34,12 @@ app.post('/delta', async function(req, res, next) {
       try {
         await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
         const fileUris = await getFileUris(taskUri);
+        const importedFileUris = [];
         for (const fileUri of fileUris) {
-          await importSubmission(fileUri);
+          const importedFileUri = await importSubmission(fileUri);
+          importedFileUris.push(importedFileUri);
         }
-        await updateTaskStatus(taskUri, env.TASK_SUCCESS_STATUS);
+        await updateTaskStatus(taskUri, env.TASK_SUCCESS_STATUS, undefined, importedFileUris);
       }
       catch (error) {
         const message = `Something went wrong while importing for task ${taskUri}`;
@@ -79,6 +81,7 @@ async function importSubmission(fileUri) {
   const ttl = rdfaExtractor.ttl();
   const uri = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
   console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${uri}>`);
+  return uri;
 }
 
 function calculateAttachmentsToDownlad(triples, submittedDocument){

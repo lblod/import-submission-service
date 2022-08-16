@@ -22,6 +22,7 @@ const PREFIX_TABLE = {
   dgftOauth:    'http://kanselarij.vo.data.gift/vocabularies/oauth-2.0-session/',
   wotSec:       'https://www.w3.org/2019/wot/security#',
   task:         'http://redpencil.data.gift/vocabularies/tasks/',
+  asj:          'http://data.lblod.info/id/automatic-submission-job/',
 };
 
 export const PREFIXES = (() => {
