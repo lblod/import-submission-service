@@ -57,21 +57,28 @@ The resulting triples are validated and converted to a submission for 'Loket voo
 ### Model
 
 #### Automatic submission task
-A resource describing the status and progress of the processing of an automatic submission.
+
+A resource describing the status and operation of the subtask of processing an automatic submission job.
 
 ##### Class
-`melding:AutomaticSubmissionTask`
+
+`task:Task`
 
 ##### Properties
-The model is specified in the [README of the automatic submission service](https://github.com/lblod/automatic-submission-service#model).
+
+The model is specified in the [README of the job-controller-service](https://github.com/lblod/job-controller-service#task).
+
 ___
+
 #### Automatic submission task statuses
-Once the import process starts, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/importing.
 
-On successful completion, the status of the automatic submission task is updated to http://lblod.data.gift/automatische-melding-statuses/ready-for-enrichment.
+Once the enrichment process starts, the status of the automatic submission task is updated to http://redpencil.data.gift/id/concept/JobStatus/busy.
 
-On failure, the status is updated to http://lblod.data.gift/automatische-melding-statuses/failure.
+On successful completion, the status of the automatic submission task is updated to http://redpencil.data.gift/id/concept/JobStatus/success. The resultsContainer is then linked to the inputContainer of the task, because no file has been created or modified, only triples in the database.
+
+On failure, the status is updated to http://redpencil.data.gift/id/concept/JobStatus/failed. If possible, an error is written to the database and the error is linked to this failed task.
 ___
+
 #### Annotated RDFa/HTML document
 Local copy of the published submission in RDFa/HTML format as downloaded by the [download-url-service](https://github.com/lblod/download-url-service). This document is used as source to harvest triples from.
 
