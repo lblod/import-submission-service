@@ -4,7 +4,7 @@ import { scheduleDownloadAttachment } from './lib/attachment-helpers';
 import { loadFileData, writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
 import { enrichSubmission, enrichWithAttachmentInfo } from './lib/submission-enricher';
-import { getFileUris, getSubmissionInfo } from './lib/submission-task';
+import { getRemoteDataObjectUris, getSubmissionInfo } from './lib/submission-task';
 import * as env from './constants.js';
 import { saveError, isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { getAuthenticationConfigForSubmission, cleanCredentials } from './lib/credential-helpers';
@@ -33,10 +33,10 @@ app.post('/delta', async function(req, res, next) {
     for (const taskUri of actualTaskUris) {
       try {
         await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
-        const fileUris = await getFileUris(taskUri);
+        const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
         const importedFileUris = [];
-        for (const fileUri of fileUris) {
-          const importedFileUri = await importSubmission(fileUri);
+        for (const remoteDataObject of remoteDataObjects) {
+          const importedFileUri = await importSubmission(remoteDataObject);
           importedFileUris.push(importedFileUri);
         }
         await updateTaskStatus(taskUri, env.TASK_SUCCESS_STATUS, undefined, importedFileUris);
@@ -58,8 +58,8 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(fileUri) {
-  const { submission, documentUrl, submittedDocument, remoteDataObject } = await getSubmissionInfo(fileUri);
+async function importSubmission(remoteDataObject) {
+  const { submission, documentUrl, submittedDocument, fileUri } = await getSubmissionInfo(remoteDataObject);
   const html = await loadFileData(fileUri);
   const rdfaExtractor = new RdfaExtractor(html, documentUrl);
   const triples = rdfaExtractor.rdfa();

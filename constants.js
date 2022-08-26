@@ -1,8 +1,9 @@
-const PREFIX_TABLE = {
+export const PREFIX_TABLE = {
   meb:          'http://rdf.myexperiment.org/ontologies/base/',
   xsd:          'http://www.w3.org/2001/XMLSchema#',
   pav:          'http://purl.org/pav/',
   dct:          'http://purl.org/dc/terms/',
+  dbpedia:      'http://dbpedia.org/ontology/',
   melding:      'http://lblod.data.gift/vocabularies/automatische-melding/',
   lblodBesluit: 'http://lblod.data.gift/vocabularies/besluit/',
   adms:         'http://www.w3.org/ns/adms#',
