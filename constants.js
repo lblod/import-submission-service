@@ -33,13 +33,6 @@ export const PREFIXES = (() => {
   return all.join('\n');
 })();
 
-export function getPrefixes(collOfPrefixes) {
-  const all = [];
-  for (const key of collOfPrefixes)
-    all.push(`PREFIX ${key}: <${PREFIX_TABLE[key]}>`);
-  return all.join('\n');
-}
-
 export const BASIC_AUTH = 'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
 export const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
 
