@@ -1,7 +1,0 @@
-{
-  "overrides": ["./automatic-submission-flow-tools/node_modules"],
-  "babelrcRoots": [
-    ".",
-    "./packages/*"
-  ]
-}
