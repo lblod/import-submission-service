@@ -1,21 +1,14 @@
 import bodyParser from 'body-parser';
-import { flatten } from 'lodash';
 import { app, errorHandler } from 'mu';
 import { scheduleDownloadAttachment } from './lib/attachment-helpers';
-import {
-    getFileContent,
-    writeTtlFile
-} from './lib/file-helpers';
+import { loadFileData, writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
-import enrichSubmission, { enrichWithAttachmentInfo } from './lib/submission-enricher';
-import {
-    getTasks, TASK_FAILURE_STATUS, TASK_ONGOING_STATUS,
-    TASK_SUCCESS_STATUS, updateTaskStatus
-} from './lib/submission-task';
-
-import { isCentraalBestuurVanEredienstDocument } from './lib/utils';
-
+import { enrichSubmission, enrichWithAttachmentInfo } from './lib/submission-enricher';
+import { getRemoteDataObjectUris, getSubmissionInfo } from './lib/submission-task';
+import * as env from './constants.js';
+import { saveError, isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { getAuthenticationConfigForSubmission, cleanCredentials } from './lib/credential-helpers';
+import { updateTaskStatus } from './lib/submission-task.js';
 
 app.use(bodyParser.json({ type: function(req) { return /^application\/json/.test(req.get('content-type')); } }));
 
@@ -24,70 +17,71 @@ app.get('/', function(req, res) {
 });
 
 app.post('/delta', async function(req, res, next) {
-  const remoteFiles = getRemoteFileUris(req.body);
-  if (!remoteFiles.length) {
-    console.log("Delta does not contain a new remote data object with status 'success'. Nothing should happen.");
-    return res.status(204).send();
-  }
+  //We can already send a 200 back. The delta-notifier does not care about the result, as long as the request is closed.
+  res.status(200).send().end();
 
   try {
-    const notStartedTasks = await getTasks(remoteFiles);
+    //Don't trust the delta-notifier, filter as best as possible. We just need the task that was created to get started.
+    const actualTaskUris = req.body
+      .map((changeset) => changeset.inserts)
+      .filter((inserts) => inserts.length > 0)
+      .flat()
+      .filter((insert) => insert.predicate.value === env.OPERATION_PREDICATE)
+      .filter((insert) => insert.object.value === env.IMPORT_OPERATION)
+      .map((insert) => insert.subject.value);
 
-    for (let { task, submission, documentUrl, submittedDocument, remoteFile } of notStartedTasks) {
-      await updateTaskStatus(task, TASK_ONGOING_STATUS);
-      importSubmission(task, submission, documentUrl, submittedDocument, remoteFile); // async processing of import
+    for (const taskUri of actualTaskUris) {
+      try {
+        await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
+        const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
+        const importedFileUris = [];
+        for (const remoteDataObject of remoteDataObjects) {
+          const importedFileUri = await importSubmission(remoteDataObject);
+          importedFileUris.push(importedFileUri);
+        }
+        await updateTaskStatus(taskUri, env.TASK_SUCCESS_STATUS, undefined, importedFileUris);
+      }
+      catch (error) {
+        const message = `Something went wrong while importing for task ${taskUri}`;
+        console.error(`${message}\n`, error.message);
+        console.error(error);
+        const errorUri = await saveError({ message, detail: error.message, });
+        await updateTaskStatus(taskUri, env.TASK_FAILURE_STATUS, errorUri);
+      }
     }
-
-    return res.status(200).send({ data: notStartedTasks  });
-  } catch (e) {
-    console.log(`Something went wrong while handling deltas for remote data objects ${remoteFiles.join(`, `)}`);
-    console.log(e);
-    return next(e);
+  }
+  catch (error) {
+    const message = 'The task for importing a submission could not even be started or finished due to an unexpected problem.';
+    console.error(`${message}\n`, error.message);
+    console.error(error);
+    await saveError({ message, detail: error.message, });
   }
 });
 
-async function importSubmission(task, submission, documentUrl, submittedDocument, remoteFile) {
-  try {
-    const html = await getFileContent(remoteFile);
+async function importSubmission(remoteDataObject) {
+  const { submission, documentUrl, submittedDocument, fileUri } = await getSubmissionInfo(remoteDataObject);
+  const html = await loadFileData(fileUri);
+  const rdfaExtractor = new RdfaExtractor(html, documentUrl);
+  const triples = rdfaExtractor.rdfa();
+  const enrichments = await enrichSubmission(submittedDocument, fileUri, remoteDataObject, triples, documentUrl);
+  rdfaExtractor.add(enrichments);
 
-    const rdfaExtractor = new RdfaExtractor(html, documentUrl);
-    const triples = rdfaExtractor.rdfa();
-    const enrichments = await enrichSubmission(submittedDocument, remoteFile, triples);
-    rdfaExtractor.add(enrichments);
+  const attachmentUrls = calculateAttachmentsToDownlad(triples, submittedDocument);
 
-    const attachmentUrls = calculateAttachmentsToDownlad(triples, submittedDocument);
-
-    if(attachmentUrls.length){
-      console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
-      for(const attachmentUrl of attachmentUrls){
-        //Note: there is no clear message when attachment download failed.
-        const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl);
-        const enrichments = await enrichWithAttachmentInfo(submittedDocument, remoteDataObject, attachmentUrl);
-        rdfaExtractor.add(enrichments);
-      }
-    }
-
-    const ttl = rdfaExtractor.ttl();
-    const uri = await writeTtlFile(ttl, submittedDocument, remoteFile);
-    console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteFile}> to <${uri}>`);
-    await updateTaskStatus(task, TASK_SUCCESS_STATUS);
-  }
-  catch (e) {
-    console.log(`Something went wrong while importing the submission from task ${task}`);
-    console.log(e);
-    // TODO add reason of failure message on task
-    try {
-      await updateTaskStatus(task, TASK_FAILURE_STATUS);
-    } catch (e) {
-      console.log(`Failed to update state of task ${task} to failure state. Is the connection to the database broken?`);
+  if(attachmentUrls.length){
+    console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
+    for(const attachmentUrl of attachmentUrls){
+      //Note: there is no clear message when attachment download failed.
+      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl);
+      const enrichments = await enrichWithAttachmentInfo(submittedDocument, remoteDataObject, attachmentUrl);
+      rdfaExtractor.add(enrichments);
     }
   }
-  finally {
-    console.log('Removing credentials from submission if any');
-    const authenticationConfig = await getAuthenticationConfigForSubmission(submission);
-    if (authenticationConfig)
-      await cleanCredentials(authenticationConfig.authenticationConfiguration);
-  }
+
+  const ttl = rdfaExtractor.ttl();
+  const uri = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
+  console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${uri}>`);
+  return uri;
 }
 
 function calculateAttachmentsToDownlad(triples, submittedDocument){
@@ -130,25 +124,5 @@ function calculateAttachmentsToDownlad(triples, submittedDocument){
   return allAttachments;
 }
 
-/**
- * Returns the inserted succesfully downloaded remote file URIs
- * from the delta message. An empty array if there are none.
- *
- * @param Object delta Message as received from the delta notifier
-*/
-function getRemoteFileUris(delta) {
-  const inserts = flatten(delta.map(changeSet => changeSet.inserts));
-  return inserts.filter(isTriggerTriple).map(t => t.subject.value);
-}
-
-/**
- * Returns whether the passed triple is a trigger for an import process
- *
- * @param Object triple Triple as received from the delta notifier
-*/
-function isTriggerTriple(triple) {
-  return triple.predicate.value == 'http://www.w3.org/ns/adms#status'
-    && triple.object.value == 'http://lblod.data.gift/file-download-statuses/success';
-}
-
 app.use(errorHandler);
+
