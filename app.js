@@ -12,7 +12,7 @@ import {
   getSubmissionInfo,
 } from './lib/submission-task';
 import * as cts from './automatic-submission-flow-tools/constants.js';
-import * as del from '../automatic-submission-service/deltas.js';
+import * as del from './automatic-submission-flow-tools/deltas.js';
 import { isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { updateTaskStatus } from './lib/submission-task.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
