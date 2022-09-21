@@ -112,7 +112,7 @@ async function importSubmission(remoteDataObject) {
   }
 
   const ttl = rdfaExtractor.ttl();
-  const uri = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
+  const uri = await writeTtlFile(ttl, submittedDocument, graph);
   console.log(
     `Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${uri}>`
   );
