@@ -75,7 +75,7 @@ app.post('/delta', async function (req, res) {
 });
 
 async function importSubmission(remoteDataObject) {
-  const { submission, documentUrl, submittedDocument, fileUri } =
+  const { submission, documentUrl, submittedDocument, fileUri, graph } =
     await getSubmissionInfo(remoteDataObject);
   const html = await loadFileData(fileUri);
   const rdfaExtractor = new RdfaExtractor(html, documentUrl);
