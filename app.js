@@ -11,9 +11,10 @@ import {
   getRemoteDataObjectUris,
   getSubmissionInfo,
 } from './lib/submission-task';
-import * as env from './constants.js';
-import { saveError, isCentraalBestuurVanEredienstDocument } from './lib/utils';
+import * as cts from './automatic-submission-flow-tools/constants.js';
+import { isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { updateTaskStatus } from './lib/submission-task.js';
+import * as err from './automatic-submission-flow-tools/errors.js';
 
 app.use(
   bodyParser.json({
@@ -37,13 +38,13 @@ app.post('/delta', async function (req, res) {
       .map((changeset) => changeset.inserts)
       .filter((inserts) => inserts.length > 0)
       .flat()
-      .filter((insert) => insert.predicate.value === env.OPERATION_PREDICATE)
-      .filter((insert) => insert.object.value === env.IMPORT_OPERATION)
+      .filter((insert) => insert.predicate.value === cts.PREDICATE_TABLE.task_operation)
+      .filter((insert) => insert.object.value === cts.OPERATIONS.import)
       .map((insert) => insert.subject.value);
 
     for (const taskUri of actualTaskUris) {
       try {
-        await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
+        await updateTaskStatus(taskUri, cts.TASK_STATUSES.busy);
         const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
         const importedFileUris = [];
         for (const remoteDataObject of remoteDataObjects) {
@@ -52,7 +53,7 @@ app.post('/delta', async function (req, res) {
         }
         await updateTaskStatus(
           taskUri,
-          env.TASK_SUCCESS_STATUS,
+          cts.TASK_STATUSES.success,
           undefined,
           importedFileUris
         );
@@ -60,8 +61,8 @@ app.post('/delta', async function (req, res) {
         const message = `Something went wrong while importing for task ${taskUri}`;
         console.error(`${message}\n`, error.message);
         console.error(error);
-        const errorUri = await saveError({ message, detail: error.message });
-        await updateTaskStatus(taskUri, env.TASK_FAILURE_STATUS, errorUri);
+        const errorUri = await err.create(message, error.message);
+        await updateTaskStatus(taskUri, cts.TASK_STATUSES.failed, errorUri);
       }
     }
   } catch (error) {
@@ -69,7 +70,7 @@ app.post('/delta', async function (req, res) {
       'The task for importing a submission could not even be started or finished due to an unexpected problem.';
     console.error(`${message}\n`, error.message);
     console.error(error);
-    await saveError({ message, detail: error.message });
+    await err.create(message, error.message);
   }
 });
 
