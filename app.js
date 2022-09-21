@@ -12,10 +12,12 @@ import {
   getSubmissionInfo,
 } from './lib/submission-task';
 import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as del from '../automatic-submission-service/deltas.js';
 import { isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { updateTaskStatus } from './lib/submission-task.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
 
+app.use(errorHandler);
 app.use(
   bodyParser.json({
     type: function (req) {
@@ -34,13 +36,11 @@ app.post('/delta', async function (req, res) {
 
   try {
     //Don't trust the delta-notifier, filter as best as possible. We just need the task that was created to get started.
-    const actualTaskUris = req.body
-      .map((changeset) => changeset.inserts)
-      .filter((inserts) => inserts.length > 0)
-      .flat()
-      .filter((insert) => insert.predicate.value === cts.PREDICATE_TABLE.task_operation)
-      .filter((insert) => insert.object.value === cts.OPERATIONS.import)
-      .map((insert) => insert.subject.value);
+    const actualTaskUris = del.getSubjects(
+      req.body,
+      cts.PREDICATE_TABLE.task_operation,
+      cts.OPERATIONS.import
+    );
 
     for (const taskUri of actualTaskUris) {
       try {
@@ -169,5 +169,3 @@ function calculateAttachmentsToDownlad(triples, submittedDocument) {
   }
   return allAttachments;
 }
-
-app.use(errorHandler);
