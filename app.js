@@ -1,7 +1,7 @@
 import bodyParser from 'body-parser';
 import { app, errorHandler } from 'mu';
 import { scheduleDownloadAttachment } from './lib/attachment-helpers';
-import { loadFileData, writeTtlFile } from './lib/file-helpers';
+import { writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
 import {
   enrichSubmission,
@@ -13,9 +13,12 @@ import {
 } from './lib/submission-task';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as del from './automatic-submission-flow-tools/deltas.js';
+import * as fil from './automatic-submission-flow-tools/asfFiles.js';
 import { isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { updateTaskStatus } from './lib/submission-task.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
+import * as N3 from 'n3';
+const { namedNode } = N3.DataFactory;
 
 app.use(errorHandler);
 app.use(
@@ -77,7 +80,7 @@ app.post('/delta', async function (req, res) {
 async function importSubmission(remoteDataObject) {
   const { submission, documentUrl, submittedDocument, fileUri, graph } =
     await getSubmissionInfo(remoteDataObject);
-  const html = await loadFileData(fileUri);
+  const html = await fil.loadFromPhysicalFile(namedNode(fileUri));
   const rdfaExtractor = new RdfaExtractor(html, documentUrl);
   const triples = rdfaExtractor.rdfa();
   const enrichments = await enrichSubmission(
