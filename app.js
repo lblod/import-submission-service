@@ -1,12 +1,9 @@
 import bodyParser from 'body-parser';
 import { app, errorHandler } from 'mu';
 import { scheduleDownloadAttachment } from './lib/attachment-helpers';
-import {
-  enrichSubmission,
-  enrichWithAttachmentInfo,
-} from './lib/submission-enricher';
 import { storeStore } from './lib/file-helpers';
 import { extractRdfa } from './lib/rdfa-extractor.js';
+import * as ses from './lib/submission-enricher.js';
 import { getSubmissionInfo } from './lib/submission-task';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as del from './automatic-submission-flow-tools/deltas.js';
@@ -36,13 +33,13 @@ app.post('/delta', async function (req, res) {
 
   try {
     //Don't trust the delta-notifier, filter as best as possible. We just need the task that was created to get started.
-    const actualTaskUris = del.getSubjects(
+    const actualTasks = del.getSubjects(
       req.body,
-      cts.PREDICATE_TABLE.task_operation,
-      cts.OPERATIONS.import
+      namedNode(cts.PREDICATE_TABLE.task_operation),
+      namedNode(cts.OPERATIONS.import)
     );
 
-    for (const taskUri of actualTaskUris) {
+    for (const task of actualTasks) {
       try {
         await tsk.updateStatus(
           task,
@@ -62,7 +59,7 @@ app.post('/delta', async function (req, res) {
           { files: importedFileUris.map(namedNode) }
         );
       } catch (error) {
-        const message = `Something went wrong while importing for task ${taskUri}`;
+        const message = `Something went wrong while importing for task ${task.value}`;
         console.error(`${message}\n`, error.message);
         console.error(error);
         const errorUri = await err.create(message, error.message);
@@ -84,100 +81,78 @@ app.post('/delta', async function (req, res) {
 });
 
 async function importSubmission(remoteDataObject) {
-  const { submission, documentUrl, submittedDocument, fileUri, graph } =
+  const { submission, documentUrl, submittedDocument, file, graph } =
     await getSubmissionInfo(remoteDataObject);
-  const html = await fil.loadFromPhysicalFile(namedNode(fileUri));
-  const rdfaExtractor = new RdfaExtractor(html, documentUrl);
-  const triples = rdfaExtractor.rdfa();
-  const enrichments = await enrichSubmission(
   const htmlStream = await fil.loadStreamFromPhysicalFile(file);
   const store = await extractRdfa(htmlStream, documentUrl);
+  await ses.enrichSubmission(
     submittedDocument,
-    fileUri,
+    file,
     remoteDataObject,
-    triples,
+    store,
     documentUrl
   );
-  rdfaExtractor.add(enrichments);
-
   const attachmentUrls = calculateAttachmentsToDownlad(
-    triples,
+    store,
     submittedDocument
   );
-
   if (attachmentUrls.length) {
-    console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
+    console.log(
+      `Found attachments: ${attachmentUrls.map((a) => a.value).join('\n')}`
+    );
     for (const attachmentUrl of attachmentUrls) {
       //Note: there is no clear message when attachment download failed.
       const remoteDataObject = await scheduleDownloadAttachment(
-        submission,
-        attachmentUrl
+        submission.value,
+        attachmentUrl.value
       );
-      const enrichments = await enrichWithAttachmentInfo(
+      await ses.enrichWithAttachmentInfo(
+        store,
         submittedDocument,
         remoteDataObject,
         attachmentUrl
       );
-      rdfaExtractor.add(enrichments);
     }
   }
-
-  const ttl = rdfaExtractor.ttl();
-  const uri = await writeTtlFile(ttl, submittedDocument, graph);
   const logicalFile = await storeStore(store, submittedDocument, graph);
   console.log(
-    `Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${uri}>`
+    `Successfully extracted data for submission <${submission.value}> from remote file <${remoteDataObject.value}> to <${logicalFile.value}>`
   );
-  return uri;
+  return logicalFile.value;
 }
 
-function calculateAttachmentsToDownlad(triples, submittedDocument) {
-  let allAttachments = [];
+function calculateAttachmentsToDownlad(store, submittedDocument) {
+  const allAttachments = [];
+  if (isCentraalBestuurVanEredienstDocument(store, submittedDocument)) {
+    const relatedDocuments = store.getObjects(
+      submittedDocument,
+      namedNode(`${cts.PREFIX_TABLE.dct}relation`)
+    );
 
-  if (isCentraalBestuurVanEredienstDocument(submittedDocument, triples)) {
-    const relatedDocuments = triples
-      .filter(
-        (t) =>
-          t.subject == submittedDocument &&
-          t.predicate == 'http://purl.org/dc/terms/relation'
-      )
-      .map((t) => t.object);
-
-    for (const docUri of relatedDocuments) {
-      const attachments = triples
-        .filter(
-          (t) =>
-            t.subject == docUri &&
-            t.predicate == 'http://purl.org/dc/terms/source'
-        )
-        .map((t) => t.object);
-
-      allAttachments = [...allAttachments, ...attachments];
+    for (const doc of relatedDocuments) {
+      const attachments = store.getObjects(
+        doc,
+        namedNode(`${cts.PREFIX_TABLE.dct}source`)
+      );
+      allAttachments.push(...attachments);
     }
   } else {
     // The most basic case where bestuurseenheid doesn't have to publish linked
     // I.e. the decision has just an URI and refers to a PDF for ALL the rest.
     // Mainly meant for VGC case
-    const attachmentsAsSourceOfDecisions = triples
-      .filter(
-        (t) =>
-          t.subject == submittedDocument &&
-          t.predicate == 'http://purl.org/dc/terms/source'
-      )
-      .map((t) => t.object);
+    const attachmentsAsSourceOfDecisions = store.getObjects(
+      submittedDocument,
+      namedNode(`${cts.PREFIX_TABLE.dct}source`)
+    );
 
     //This should cover simple attachments AND attachments as part of decision
-    const simpleAttachments = triples
-      .filter(
-        (t) =>
-          t.subject == submittedDocument &&
-          t.predicate == 'http://data.europa.eu/eli/ontology#related_to'
-      )
-      .map((t) => t.object);
-
+    const simpleAttachments = store.getObjects(
+      submittedDocument,
+      namedNode(`${cts.PREFIX_TABLE.eli}related_to`)
+    );
     //Nested decisions are ignored for now. Not sure what to expect from ABB, and how it should be rendered.
-
-    allAttachments = [...attachmentsAsSourceOfDecisions, ...simpleAttachments];
+    allAttachments.push(...attachmentsAsSourceOfDecisions);
+    allAttachments.push(...simpleAttachments);
   }
   return allAttachments;
 }
