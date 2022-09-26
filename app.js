@@ -6,16 +6,13 @@ import {
   enrichSubmission,
   enrichWithAttachmentInfo,
 } from './lib/submission-enricher';
-import {
-  getRemoteDataObjectUris,
-  getSubmissionInfo,
-} from './lib/submission-task';
 import { storeStore } from './lib/file-helpers';
+import { getSubmissionInfo } from './lib/submission-task';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as del from './automatic-submission-flow-tools/deltas.js';
 import * as fil from './automatic-submission-flow-tools/asfFiles.js';
+import * as tsk from './automatic-submission-flow-tools/asfTasks.js';
 import { isCentraalBestuurVanEredienstDocument } from './lib/utils';
-import { updateTaskStatus } from './lib/submission-task.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -47,25 +44,34 @@ app.post('/delta', async function (req, res) {
 
     for (const taskUri of actualTaskUris) {
       try {
-        await updateTaskStatus(taskUri, cts.TASK_STATUSES.busy);
-        const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
+        await tsk.updateStatus(
+          task,
+          namedNode(cts.TASK_STATUSES.busy),
+          namedNode(cts.SERVICES.import)
+        );
+        const remoteDataObjects = await tsk.getInputFilesFromTask(task);
         const importedFileUris = [];
         for (const remoteDataObject of remoteDataObjects) {
           const importedFileUri = await importSubmission(remoteDataObject);
           importedFileUris.push(importedFileUri);
         }
-        await updateTaskStatus(
-          taskUri,
-          cts.TASK_STATUSES.success,
-          undefined,
-          importedFileUris
+        await tsk.updateStatus(
+          task,
+          namedNode(cts.TASK_STATUSES.success),
+          namedNode(cts.SERVICES.import),
+          { files: importedFileUris.map(namedNode) }
         );
       } catch (error) {
         const message = `Something went wrong while importing for task ${taskUri}`;
         console.error(`${message}\n`, error.message);
         console.error(error);
         const errorUri = await err.create(message, error.message);
-        await updateTaskStatus(taskUri, cts.TASK_STATUSES.failed, errorUri);
+        await tsk.updateStatus(
+          task,
+          namedNode(cts.TASK_STATUSES.failed),
+          namedNode(cts.SERVICES.import),
+          namedNode(errorUri)
+        );
       }
     }
   } catch (error) {
