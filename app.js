@@ -1,12 +1,12 @@
 import bodyParser from 'body-parser';
 import { app, errorHandler } from 'mu';
 import { scheduleDownloadAttachment } from './lib/attachment-helpers';
-import RdfaExtractor from './lib/rdfa-extractor';
 import {
   enrichSubmission,
   enrichWithAttachmentInfo,
 } from './lib/submission-enricher';
 import { storeStore } from './lib/file-helpers';
+import { extractRdfa } from './lib/rdfa-extractor.js';
 import { getSubmissionInfo } from './lib/submission-task';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as del from './automatic-submission-flow-tools/deltas.js';
@@ -90,6 +90,8 @@ async function importSubmission(remoteDataObject) {
   const rdfaExtractor = new RdfaExtractor(html, documentUrl);
   const triples = rdfaExtractor.rdfa();
   const enrichments = await enrichSubmission(
+  const htmlStream = await fil.loadStreamFromPhysicalFile(file);
+  const store = await extractRdfa(htmlStream, documentUrl);
     submittedDocument,
     fileUri,
     remoteDataObject,
