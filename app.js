@@ -1,7 +1,6 @@
 import bodyParser from 'body-parser';
 import { app, errorHandler } from 'mu';
 import { scheduleDownloadAttachment } from './lib/attachment-helpers';
-import { writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
 import {
   enrichSubmission,
@@ -11,6 +10,7 @@ import {
   getRemoteDataObjectUris,
   getSubmissionInfo,
 } from './lib/submission-task';
+import { storeStore } from './lib/file-helpers';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as del from './automatic-submission-flow-tools/deltas.js';
 import * as fil from './automatic-submission-flow-tools/asfFiles.js';
@@ -116,6 +116,7 @@ async function importSubmission(remoteDataObject) {
 
   const ttl = rdfaExtractor.ttl();
   const uri = await writeTtlFile(ttl, submittedDocument, graph);
+  const logicalFile = await storeStore(store, submittedDocument, graph);
   console.log(
     `Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${uri}>`
   );
