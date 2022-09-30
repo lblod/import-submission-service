@@ -62,12 +62,16 @@ app.post('/delta', async function (req, res) {
         const message = `Something went wrong while importing for task ${task.value}`;
         console.error(`${message}\n`, error.message);
         console.error(error);
-        const errorUri = await err.create(message, error.message);
+        const errorNode = await err.create(
+          namedNode(cts.SERVICES.importSubmision),
+          message,
+          error.message
+        );
         await tsk.updateStatus(
           task,
           namedNode(cts.TASK_STATUSES.failed),
           namedNode(cts.SERVICES.import),
-          namedNode(errorUri)
+          errorNode
         );
       }
     }
@@ -76,7 +80,11 @@ app.post('/delta', async function (req, res) {
       'The task for importing a submission could not even be started or finished due to an unexpected problem.';
     console.error(`${message}\n`, error.message);
     console.error(error);
-    await err.create(message, error.message);
+    await err.create(
+      namedNode(cts.SERVICES.importSubmision),
+      message,
+      error.message
+    );
   }
 });
 
