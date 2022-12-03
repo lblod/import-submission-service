@@ -9,6 +9,7 @@ import * as env from './constants.js';
 import { saveError, isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { getAuthenticationConfigForSubmission, cleanCredentials } from './lib/credential-helpers';
 import { updateTaskStatus } from './lib/submission-task.js';
+import * as config from './config';
 
 app.use(bodyParser.json({ type: function(req) { return /^application\/json/.test(req.get('content-type')); } }));
 
@@ -35,8 +36,9 @@ app.post('/delta', async function(req, res, next) {
         await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
         const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
         const importedFileUris = [];
+        const reqState = { req, taskUri, remoteDataObject };
         for (const remoteDataObject of remoteDataObjects) {
-          const { logicalUri, physicalUri } = await importSubmission(remoteDataObject);
+          const { logicalUri, physicalUri } = await importSubmission(remoteDataObject, reqState);
           //Give logical file uri and not physical, because this is for the tasks and the dashboard
           importedFileUris.push(logicalUri);
         }
@@ -59,8 +61,11 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(remoteDataObject) {
-  const { submission, documentUrl, submittedDocument, fileUri } = await getSubmissionInfo(remoteDataObject);
+async function importSubmission(remoteDataObject, reqState) {
+  const { submission, documentUrl, submittedDocument, fileUri, organisationId } = await getSubmissionInfo(remoteDataObject);
+  reqState.organisationId = organisationId;
+  reqState.submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationId);
+  //TODO add reqState as arg to functions that need it
   const html = await loadFileData(fileUri);
   const rdfaExtractor = new RdfaExtractor(html, documentUrl);
   const triples = rdfaExtractor.rdfa();
