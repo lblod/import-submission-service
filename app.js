@@ -78,14 +78,14 @@ async function importSubmission(remoteDataObject, reqState) {
     console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
     for(const attachmentUrl of attachmentUrls){
       //Note: there is no clear message when attachment download failed.
-      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl);
+      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl, reqState);
       const enrichments = await enrichWithAttachmentInfo(submittedDocument, remoteDataObject, attachmentUrl);
       rdfaExtractor.add(enrichments);
     }
   }
 
   const ttl = rdfaExtractor.ttl();
-  const { logicalUri, physicalUri } = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
+  const { logicalUri, physicalUri } = await writeTtlFile(ttl, submittedDocument, remoteDataObject, reqState);
   console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${logicalUri}>`);
   return { logicalUri, physicalUri };
 }
