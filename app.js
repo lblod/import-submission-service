@@ -36,8 +36,8 @@ app.post('/delta', async function(req, res, next) {
         await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
         const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
         const importedFileUris = [];
-        const reqState = { req, taskUri, remoteDataObject };
         for (const remoteDataObject of remoteDataObjects) {
+          const reqState = { req, taskUri, remoteDataObject };
           const { logicalUri, physicalUri } = await importSubmission(remoteDataObject, reqState);
           //Give logical file uri and not physical, because this is for the tasks and the dashboard
           importedFileUris.push(logicalUri);
