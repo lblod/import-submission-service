@@ -47,8 +47,9 @@ app.post('/delta', async function (req, res) {
         const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
         const importedFileUris = [];
         for (const remoteDataObject of remoteDataObjects) {
-          const importedFileUri = await importSubmission(remoteDataObject);
-          importedFileUris.push(importedFileUri);
+          const { logicalUri, physicalUri } = await importSubmission(remoteDataObject);
+          //Give logical file uri and not physical, because this is for the tasks and the dashboard
+          importedFileUris.push(logicalUri);
         }
         await updateTaskStatus(
           taskUri,
@@ -111,11 +112,9 @@ async function importSubmission(remoteDataObject) {
   }
 
   const ttl = rdfaExtractor.ttl();
-  const uri = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
-  console.log(
-    `Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${uri}>`
-  );
-  return uri;
+  const { logicalUri, physicalUri } = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
+  console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${logicalUri}>`);
+  return { logicalUri, physicalUri };
 }
 
 function calculateAttachmentsToDownlad(triples, submittedDocument) {
