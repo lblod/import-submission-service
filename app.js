@@ -49,18 +49,18 @@ app.post('/delta', async function (req, res) {
           namedNode(cts.SERVICES.import)
         );
         const remoteDataObjects = await tsk.getInputFilesFromTask(task);
-        const importedFileUris = [];
+        const importedFiles = [];
         for (const remoteDataObject of remoteDataObjects) {
-          const { logicalUri } = await importSubmission(remoteDataObject);
+          const { logicalFile } = await importSubmission(remoteDataObject);
           //Give logical file uri and not physical, because this is for the
           //tasks and the dashboard
-          importedFileUris.push(logicalUri);
+          importedFiles.push(logicalFile);
         }
         await tsk.updateStatus(
           task,
           namedNode(cts.TASK_STATUSES.success),
           namedNode(cts.SERVICES.import),
-          { files: importedFileUris.map(namedNode) }
+          { files: importedFiles }
         );
       } catch (error) {
         const message = `Something went wrong while importing for task ${task.value}`;
@@ -126,25 +126,16 @@ async function importSubmission(remoteDataObject) {
       );
     }
   }
-<<<<<<< HEAD
-  const logicalFile = await storeStore(store, submittedDocument, graph);
-  console.log(
-    `Successfully extracted data for submission <${submission.value}> from remote file <${remoteDataObject.value}> to <${logicalFile.value}>`
-  );
-  return logicalFile.value;
-=======
-
-  const ttl = rdfaExtractor.ttl();
-  const { logicalUri, physicalUri } = await writeTtlFile(
-    ttl,
+  const fileData = await storeStore(
+    store,
     submittedDocument,
-    remoteDataObject
+    remoteDataObject,
+    graph
   );
   console.log(
-    `Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${logicalUri}>`
+    `Successfully extracted data for submission <${submission.value}> from remote file <${remoteDataObject.value}> to <${fileData.logicalFile.value}>`
   );
-  return { logicalUri, physicalUri };
->>>>>>> linting
+  return fileData;
 }
 
 function calculateAttachmentsToDownlad(store, submittedDocument) {
