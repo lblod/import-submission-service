@@ -28,11 +28,13 @@ app.get('/', function (req, res) {
 });
 
 app.post('/delta', async function (req, res) {
-  //We can already send a 200 back. The delta-notifier does not care about the result, as long as the request is closed.
+  //We can already send a 200 back. The delta-notifier does not care about the
+  //result, as long as the request is closed.
   res.status(200).send().end();
 
   try {
-    //Don't trust the delta-notifier, filter as best as possible. We just need the task that was created to get started.
+    //Don't trust the delta-notifier, filter as best as possible. We just need
+    //the task that was created to get started.
     const actualTasks = del.getSubjects(
       req.body,
       namedNode(cts.PREDICATE_TABLE.task_operation),
@@ -49,8 +51,10 @@ app.post('/delta', async function (req, res) {
         const remoteDataObjects = await tsk.getInputFilesFromTask(task);
         const importedFileUris = [];
         for (const remoteDataObject of remoteDataObjects) {
-          const importedFileUri = await importSubmission(remoteDataObject);
-          importedFileUris.push(importedFileUri);
+          const { logicalUri } = await importSubmission(remoteDataObject);
+          //Give logical file uri and not physical, because this is for the
+          //tasks and the dashboard
+          importedFileUris.push(logicalUri);
         }
         await tsk.updateStatus(
           task,
@@ -122,11 +126,25 @@ async function importSubmission(remoteDataObject) {
       );
     }
   }
+<<<<<<< HEAD
   const logicalFile = await storeStore(store, submittedDocument, graph);
   console.log(
     `Successfully extracted data for submission <${submission.value}> from remote file <${remoteDataObject.value}> to <${logicalFile.value}>`
   );
   return logicalFile.value;
+=======
+
+  const ttl = rdfaExtractor.ttl();
+  const { logicalUri, physicalUri } = await writeTtlFile(
+    ttl,
+    submittedDocument,
+    remoteDataObject
+  );
+  console.log(
+    `Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${logicalUri}>`
+  );
+  return { logicalUri, physicalUri };
+>>>>>>> linting
 }
 
 function calculateAttachmentsToDownlad(store, submittedDocument) {
@@ -158,7 +176,8 @@ function calculateAttachmentsToDownlad(store, submittedDocument) {
       submittedDocument,
       namedNode(`${cts.PREFIX_TABLE.eli}related_to`)
     );
-    //Nested decisions are ignored for now. Not sure what to expect from ABB, and how it should be rendered.
+    //Nested decisions are ignored for now. Not sure what to expect from ABB,
+    //and how it should be rendered.
     allAttachments.push(...attachmentsAsSourceOfDecisions);
     allAttachments.push(...simpleAttachments);
   }
