@@ -28,11 +28,13 @@ app.get('/', function (req, res) {
 });
 
 app.post('/delta', async function (req, res) {
-  //We can already send a 200 back. The delta-notifier does not care about the result, as long as the request is closed.
+  //We can already send a 200 back. The delta-notifier does not care about the
+  //result, as long as the request is closed.
   res.status(200).send().end();
 
   try {
-    //Don't trust the delta-notifier, filter as best as possible. We just need the task that was created to get started.
+    //Don't trust the delta-notifier, filter as best as possible. We just need
+    //the task that was created to get started.
     const actualTaskUris = req.body
       .map((changeset) => changeset.inserts)
       .filter((inserts) => inserts.length > 0)
@@ -47,8 +49,9 @@ app.post('/delta', async function (req, res) {
         const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
         const importedFileUris = [];
         for (const remoteDataObject of remoteDataObjects) {
-          //Give logical file uri and not physical, because this is for the tasks and the dashboard
           const { logicalUri } = await importSubmission(remoteDataObject);
+          //Give logical file uri and not physical, because this is for the
+          //tasks and the dashboard
           importedFileUris.push(logicalUri);
         }
         await updateTaskStatus(
@@ -167,7 +170,8 @@ function calculateAttachmentsToDownlad(triples, submittedDocument) {
       )
       .map((t) => t.object);
 
-    //Nested decisions are ignored for now. Not sure what to expect from ABB, and how it should be rendered.
+    //Nested decisions are ignored for now. Not sure what to expect from ABB,
+    //and how it should be rendered.
 
     allAttachments = [...attachmentsAsSourceOfDecisions, ...simpleAttachments];
   }
