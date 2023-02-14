@@ -12,12 +12,12 @@
     "@lblod/marawa": "^0.7.1",
     "@lblod/mu-auth-sudo": "^0.2.0",
     "body-parser": "1.19.0",
+    "env-var": "^7.3.0",
     "fs-extra": "8.1.0",
     "jsdom": "^11.6.2",
     "lodash": "^4.17.11",
     "uuid": "^8.3.2"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   }

@@ -4,11 +4,12 @@ import { scheduleDownloadAttachment } from './lib/attachment-helpers';
 import { loadFileData, writeTtlFile } from './lib/file-helpers';
 import RdfaExtractor from './lib/rdfa-extractor';
 import { enrichSubmission, enrichWithAttachmentInfo } from './lib/submission-enricher';
-import { getRemoteDataObjectUris, getSubmissionInfo } from './lib/submission-task';
+import { getRemoteDataObjectUris, getSubmissionInfo, getOrganisationIdFromTask } from './lib/submission-task';
 import * as env from './constants.js';
 import { saveError, isCentraalBestuurVanEredienstDocument } from './lib/utils';
 import { getAuthenticationConfigForSubmission, cleanCredentials } from './lib/credential-helpers';
 import { updateTaskStatus } from './lib/submission-task.js';
+import * as config from './config';
 
 app.use(bodyParser.json({ type: function(req) { return /^application\/json/.test(req.get('content-type')); } }));
 
@@ -32,22 +33,27 @@ app.post('/delta', async function(req, res, next) {
 
     for (const taskUri of actualTaskUris) {
       try {
-        await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS);
-        const remoteDataObjects = await getRemoteDataObjectUris(taskUri);
+        const organisationId = await getOrganisationIdFromTask(taskUri);
+        const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationId);
+        await updateTaskStatus(taskUri, env.TASK_ONGOING_STATUS, undefined, undefined, submissionGraph);
+        const remoteDataObjects = await getRemoteDataObjectUris(taskUri, submissionGraph);
         const importedFileUris = [];
         for (const remoteDataObject of remoteDataObjects) {
-          const { logicalUri, physicalUri } = await importSubmission(remoteDataObject);
+          const reqState = { req, taskUri, remoteDataObject, organisationId, submissionGraph };
+          const { logicalUri, physicalUri } = await importSubmission(remoteDataObject, reqState);
           //Give logical file uri and not physical, because this is for the tasks and the dashboard
           importedFileUris.push(logicalUri);
         }
-        await updateTaskStatus(taskUri, env.TASK_SUCCESS_STATUS, undefined, importedFileUris);
+        await updateTaskStatus(taskUri, env.TASK_SUCCESS_STATUS, undefined, importedFileUris, submissionGraph);
       }
       catch (error) {
         const message = `Something went wrong while importing for task ${taskUri}`;
         console.error(`${message}\n`, error.message);
         console.error(error);
         const errorUri = await saveError({ message, detail: error.message, });
-        await updateTaskStatus(taskUri, env.TASK_FAILURE_STATUS, errorUri);
+        const organisationId = await getOrganisationIdFromTask(taskUri);
+        const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationId);
+        await updateTaskStatus(taskUri, env.TASK_FAILURE_STATUS, errorUri, undefined, submissionGraph);
       }
     }
   }
@@ -59,8 +65,8 @@ app.post('/delta', async function(req, res, next) {
   }
 });
 
-async function importSubmission(remoteDataObject) {
-  const { submission, documentUrl, submittedDocument, fileUri } = await getSubmissionInfo(remoteDataObject);
+async function importSubmission(remoteDataObject, reqState) {
+  const { submission, documentUrl, submittedDocument, fileUri } = await getSubmissionInfo(remoteDataObject, reqState.submissionGraph);
   const html = await loadFileData(fileUri);
   const rdfaExtractor = new RdfaExtractor(html, documentUrl);
   const triples = rdfaExtractor.rdfa();
@@ -73,14 +79,14 @@ async function importSubmission(remoteDataObject) {
     console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
     for(const attachmentUrl of attachmentUrls){
       //Note: there is no clear message when attachment download failed.
-      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl);
+      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl, reqState);
       const enrichments = await enrichWithAttachmentInfo(submittedDocument, remoteDataObject, attachmentUrl);
       rdfaExtractor.add(enrichments);
     }
   }
 
   const ttl = rdfaExtractor.ttl();
-  const { logicalUri, physicalUri } = await writeTtlFile(ttl, submittedDocument, remoteDataObject);
+  const { logicalUri, physicalUri } = await writeTtlFile(ttl, submittedDocument, remoteDataObject, reqState);
   console.log(`Successfully extracted data for submission <${submission}> from remote file <${remoteDataObject}> to <${logicalUri}>`);
   return { logicalUri, physicalUri };
 }
