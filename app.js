@@ -79,7 +79,7 @@ async function importSubmission(remoteDataObject, reqState) {
     console.log(`Found attachments: ${attachmentUrls.join('\n')}`);
     for(const attachmentUrl of attachmentUrls){
       //Note: there is no clear message when attachment download failed.
-      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl, reqState);
+      const remoteDataObject = await scheduleDownloadAttachment(submission, attachmentUrl, reqState, html);
       const enrichments = await enrichWithAttachmentInfo(submittedDocument, remoteDataObject, attachmentUrl);
       rdfaExtractor.add(enrichments);
     }
