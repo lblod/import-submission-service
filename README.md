@@ -117,6 +117,12 @@ ___
 
 For a full list of properties of a submitted resource, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations).
 
+## Environment variables
+| Name | Description | Default |
+|------|-------------|---------|
+| `VANDENBROELE_URI` | URI of the Vandenbroele vendor used to detect submissions from this vendor | `http://data.lblod.info/vendors/b1e41693-639a-4f61-92a9-5b9a3e0b924e` |
+| `APPLY_VANDENBROELE_FILENAME_WORKAROUND` | When `true`, enables a workaround that tries to extract a suggested filename from the submission HTML for Vandenbroele submissions. The filename is attached as `ext:suggestedFilename` to the scheduled remote data object. | `false` |
+
 ## Related services
 The following services are also involved in the automatic processing of a submission:
 * [automatic-submission-service](https://github.com/lblod/automatic-submission-service)
